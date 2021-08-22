@@ -1,0 +1,10 @@
+{% extends "index.html" %}
+{% block contents %}
+<h1>ラズベリーパイ<br />Personal Server</h1>
+<a href="./cap">現在ホームカメラの様子</a><br /><br />
+<a href="./memo">ちょいメモ</a><br /><br />
+<input type="button" value="{{'LED1 OFF' if led1 else 'LED1 ON'}}" onclick="location.href='./?led1={{'off' if led1 else 'on'}}'"><br /><br />
+<input type="button" value="{{'LED2 OFF' if led2 else 'LED2 ON'}}" onclick="location.href='./?led2={{'off' if led2 else 'on'}}'"><br /><br />
+<div style="text-align: center; padding: 20px;"><img src="/clockimg"></div>
+{% endblock %}
+

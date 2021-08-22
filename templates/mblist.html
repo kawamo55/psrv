@@ -1,0 +1,11 @@
+{% extends "index.html" %}
+{% block contents %}
+<h1>ラズベリーパイ<br />ホームサーバー</h1>
+<div style="text-align:center">
+{% for mb in mlist %}
+  <p> {{mlist[mb]['name']}} , {{mlist[mb]['age']}} </p>
+{% endfor %}
+<a href="/"> top </a>
+</div>
+{% endblock %}
+

@@ -1,0 +1,130 @@
+#!/usr/bin/python3
+
+from flask import Flask, render_template, Blueprint, request, Response
+import cv2
+import time as tm
+import json as js
+import wiringpi as wp
+import datetime as dt
+import numpy as np
+
+sx = 200
+sy = 200
+pi = 3.1415
+co = (0,255,0)
+rco = (128,64,255)
+
+maxpic = 8
+
+def writeclock(img):
+    global sx,sy,pi,co
+    img[:,:,0], img[:,:,1], img[:,:,2] = (128,0,0)
+    cx, cy = (int(sx/2), int(sy/2))
+    for i in range(12):
+        px = int((-cx+4) * np.sin(pi*(i + 6)/6)+cx)
+        py = int((cy-4) * np.cos(pi*(i + 6)/6)+cy)
+        cv2.circle(img,(px,py),2,rco,thickness=-1)
+    t = dt.datetime.now()
+    # second
+    sec = t.second
+    secx = int((-cx+10) * np.sin(pi*(sec+30)/30) + cx)
+    secy = int((cy-10) * np.cos(pi*(sec+30)/30) + cy)
+    # minute
+    min = t.minute
+    minx = int((-cx+20) * np.sin(pi*(min+30)/30) + cx)
+    miny = int((cy-20) * np.cos(pi*(min+30)/30) + cy)
+    # hour
+    hor = min + t.hour * 60
+    horx = int((-cx+45) * np.sin(pi*(hor+360)/360) + cx)
+    hory = int((cy-45) * np.cos(pi*(hor+360)/360) + cy)
+    cv2.line(img,(cx,cy),(secx,secy),co,2)
+    cv2.line(img,(cx,cy),(minx,miny),co,4)
+    cv2.line(img,(cx,cy),(horx,hory),co,6)
+
+app = Flask(__name__,static_folder='images')
+app2 = Blueprint("data",__name__,static_url_path="/data",static_folder="/data")
+app.register_blueprint(app2)
+
+@app.route('/',methods=["GET"])
+def root():
+    prm = request.args.get("led1")
+    if prm=='on':
+        wp.digitalWrite(17,1)
+    if prm=='off':
+        wp.digitalWrite(17,0)
+    prm = request.args.get("led2")
+    if prm=='on':
+        wp.digitalWrite(18,1)
+    if prm=='off':
+        wp.digitalWrite(18,0)
+    led1=wp.digitalRead(17)
+    led2=wp.digitalRead(18)
+    return render_template('root.html',led1=led1,led2=led2)
+
+@app.route('/cap')
+def readcam():
+    return render_template('cap.html')
+
+@app.route('/memo',methods=["POST","GET"])
+def memodsp():
+    maxdata=15
+    msglist=[]
+    for i in range(maxdata):
+        msglist.append("")
+    f = open('data/memo.txt','r')
+    for i in range(1,maxdata):
+        txt=f.readline()
+        if txt:
+            msglist[i]=txt 
+    if request.method == "POST":
+        msg=request.form["msg"]
+        if msg != "":
+            nw=dt.datetime.now()
+            msglist[0]=(nw.strftime("%Y/%m/%d %H:%M")+" >> "+msg+"\n")
+        f = open('data/memo.txt','w')
+        f.writelines(msglist)
+    return render_template('dspmemo.html',msglist=msglist)
+
+@app.route('/mlist')
+def mblist():
+    with open("data/mlist.json") as f:
+        mlist=js.load(f)
+    return render_template('mblist.html',mlist=mlist);
+
+def SetupWp( ):
+    wp.wiringPiSetupGpio()
+    wp.pinMode(17, wp.GPIO.OUTPUT)
+    wp.pinMode(18, wp.GPIO.OUTPUT)
+
+def getStream():
+    st=1.0
+    while True:
+        ts=str(int(tm.time()/st-3.0) % maxpic)
+        i=cv2.imread('./images/cap'+ts+'.jpg')
+        flg, frame = cv2.imencode('.jpg', i)
+        yield b'--frame\r\n'+b'Content-Type: image/jpeg\r\n\r\n'+bytearray(frame)+b'\r\n\r\n'
+        tm.sleep(st)
+
+@app.route('/capimg')
+def stream( ):
+    return Response(getStream(),mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+def getStreamClock():
+    global sx, sy
+    n=0
+    while True:
+        ic=np.zeros((sx, sy, 3), np.uint8)
+        writeclock(ic)
+        flg, frame = cv2.imencode('.jpg', ic)
+        yield b'--frame\r\n'+b'Content-Type: image/jpeg\r\n\r\n'+bytearray(frame)+b'\r\n\r\n'
+        tm.sleep(0.1)
+
+@app.route('/clockimg')
+def streamClock( ):
+    return Response(getStreamClock(),mimetype='multipart/x-mixed-replace; boundary=frame')
+
+if __name__=='__main__':
+    SetupWp( )
+    app.run(host='0.0.0.0', port=8080, debug=False)
+

@@ -1,0 +1,19 @@
+{% extends "index.html" %}
+{% block contents %}
+<h1>ラズベリーパイ<br />Personal Server</h1>
+<p>---- ちょいメモ ----</p>
+<div style="text-align:center;">
+<form action="/memo" method="POST">
+<input type="text" name="msg" value="">
+<input type="submit" value="書込み">
+</from>
+<br />
+<div style="width: 96%; text-align: left; font-size: small;">
+{% for msg in msglist %}
+  {% if msg %}
+    {{msg}}<br />
+  {% endif %}
+{% endfor %}
+</div>
+<a href="/"> top </a></div>
+{% endblock %}
